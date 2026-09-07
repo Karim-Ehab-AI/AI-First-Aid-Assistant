@@ -1,4 +1,4 @@
-# Clinical AI Assistant
+﻿# First-Aid AI Assistant
 
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white)
@@ -10,13 +10,27 @@
 ![Pytest](https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-An intelligent, emergency-ready Clinical Decision Support System designed to deliver fast, verified, and strictly bounded first aid guidance in both **English** and **Arabic**.
-
-The system is centered around an **AI-driven Hybrid RAG pipeline**—combining dense and sparse vector retrieval with reciprocal rank fusion (RRF) to ground every response in verified medical protocols while eliminating hallucinations. The platform is wrapped in a production-ready microservices architecture supporting real-time voice inputs, geolocation hospital discovery, and authenticated session management.
+An emergency-ready Clinical Decision Support System that delivers fast, verified first aid guidance in **English** and **Arabic**. Built on a **Hybrid RAG pipeline** that combines dense and sparse vector retrieval with Reciprocal Rank Fusion (RRF), grounding every response in verified medical protocols and refusing out-of-scope queries at the gate.
 
 ---
 
-## AI Architecture & Pipeline
+## Table of Contents
+
+- [System Architecture](#system-architecture)
+  - [High-Level Overview](#high-level-overview)
+  - [Microservices Breakdown](#microservices-breakdown)
+  - [AI Subsystem Pipelines](#ai-subsystem-pipelines)
+- [Prerequisites](#prerequisites--required-api-keys)
+- [Required Pre-run Step: Colab Microservice](#required-pre-run-step-colab-microservice)
+- [Environment Configuration](#environment-configuration)
+- [Running the Application](#running-the-application)
+- [Running Tests](#running-tests)
+
+---
+
+## System Architecture
+
+### High-Level Overview
 
 ```mermaid
 flowchart LR
@@ -32,77 +46,119 @@ flowchart LR
 
 ---
 
-## System Architecture Overview
+### Microservices Breakdown
 
-The system is built as a modular microservices architecture, prioritizing the AI core while integrating necessary services for a complete end-to-end product:
+The platform is deployed as a set of independent, loosely-coupled microservices:
 
-### 1. Core Clinical AI Service (`backend/ai/`) — *The AI Engine*
-A production-ready FastAPI service following Clean Architecture principles:
-- **Hybrid RAG Retrieval**: Coordinates dense and sparse vector searches in Qdrant, fusing rankings with Reciprocal Rank Fusion (RRF) for high-recall clinical retrieval.
-- **Clinical Synthesis & Guardrails**: Enforces strict medical boundaries, detects locale (Arabic/English), and synthesizes safe first aid instructions via Google Gemini without hallucinating unsupported treatments.
-- **Speech-to-Text Pipeline**: Processes emergency voice queries asynchronously using the Groq Whisper API.
-
-### 2. Remote AI Inference Worker (Google Colab / GPU)
-A dedicated GPU microservice handling compute-intensive AI operations:
-- High-performance embedding generation using **BGE-M3** (dense embeddings and sparse lexical weights).
-- Document parsing and structured chunking of medical PDFs via Docling.
-
-### 3. Emergency Map Service (`backend/map/`)
-An independent FastAPI microservice providing location-based search and routing for the 3 nearest emergency hospitals and healthcare facilities.
-
-### 4. Auth & Session Backend (`backend/auth/`)
-Node.js/Express service backed by MongoDB that manages user accounts, HttpOnly JWT cookies, and persistent conversation history across multiple chat sessions.
-
-### 5. Frontend Client (`frontend/`)
-A responsive web application built with React, TypeScript, Vite, Tailwind CSS, and shadcn/ui, providing voice recording, chat consultations, and map views.
+| Service | Stack | Responsibility |
+|---|---|---|
+| **Core AI Backend** (`backend/ai/`) | Python, FastAPI | Hybrid RAG orchestration, clinical guardrails, STT pipeline |
+| **Remote Inference Worker** | Google Colab / GPU | BGE-M3 embedding generation, PDF parsing & chunking via Docling |
+| **Emergency Map Service** (`backend/map/`) | Python, FastAPI | Geolocation-based search for the 3 nearest emergency facilities |
+| **Auth & Session Backend** (`backend/auth/`) | Node.js, Express, MongoDB | JWT authentication, HttpOnly cookies, conversation history |
+| **Frontend Client** (`frontend/`) | React, TypeScript, Vite, Tailwind, shadcn/ui | Voice recording, chat UI, interactive map views |
 
 ---
 
-## Key Features
+### AI Subsystem Pipelines
 
-- **Hybrid RAG Retrieval**: Combines semantic embeddings with lexical token matching and Reciprocal Rank Fusion (RRF) for strict, reliable clinical evidence retrieval.
-- **Clinical Safety & Guardrails**: Hardened prompt templates with refusal gates that decline answering unsupported or out-of-scope non-medical questions.
-- **Bilingual Medical Support**: Native comprehension and response generation for medical emergencies in both **Arabic** and **English**.
-- **Voice-First Input**: Real-time audio transcription via Groq Whisper for quick hands-free interaction during urgent situations.
-- **Emergency Facility Locator**: Geolocation lookup to instantly find and navigate to the nearest hospitals.
-- **Multi-Session History & Guest Mode**: Authenticated users can store and manage past emergency consultations, while guests can use the system instantly without barriers.
+The core AI engine is composed of four modular pipelines that govern the full lifecycle from document ingestion to clinical answer generation.
+
+---
+
+#### 1. Document Ingestion & Chunking Pipeline
+
+<p align="center">
+  <img src="docs/images/File_Reading_Pipeline.png" alt="File Reading Pipeline" width="100%" />
+</p>
+
+- **Docling Extraction**: Parses medical reference PDFs, extracting text, tables, and images while discarding non-informative headers and footers.
+- **Cleaning & Normalization**: Standardizes clinical narrative and tabular data for downstream processing.
+- **Semantic-Based Chunking**: Splits protocols into coherent, context-preserving chunks that maintain clinical meaning across boundaries.
+- **Dual Embedding & Metadata**: Each chunk is encoded into **BGE-M3** dense and sparse vectors, and tagged with source, topic, and page metadata.
+- **Qdrant Ingestion**: Vectors and payloads are persisted in Qdrant, ready for hybrid retrieval.
+
+---
+
+#### 2. Query Handling & Preprocessing Pipeline
+
+<p align="center">
+  <img src="docs/images/Query_Handling_Pipeline.png" alt="Query Handling Pipeline" width="100%" />
+</p>
+
+- **Multi-Modal Input**: Accepts both text and voice queries.
+- **Speech-to-Text**: Voice inputs are transcribed asynchronously via Groq Whisper before entering the pipeline.
+- **Language Detection**: Identifies Arabic (`ar`) or English (`en`) to enforce locale-aware medical terminology downstream.
+- **Scope Gate — Exit Refusal**: Out-of-scope or non-medical queries are refused here, before any retrieval or generation occurs.
+- **Topic Classification**: Labels the emergency scenario (e.g., Burns, Bleeding, Fractures, Choking, CPR, Poisoning).
+- **Query Rewriting**: Reformulates noisy user input into a clinically precise retrieval query.
+
+---
+
+#### 3. Hybrid Retriever Pipeline
+
+<p align="center">
+  <img src="docs/images/Retriever_Pipeline.png" alt="Retriever Pipeline" width="100%" />
+</p>
+
+- **Dual Query Embedding**: The rewritten query is encoded into dense semantic and sparse lexical vectors using BGE-M3.
+- **Hybrid Retrieval with RRF**: Dense and sparse searches run in parallel against Qdrant. Results are merged using Reciprocal Rank Fusion (RRF), yielding a ranked **Top-20** candidate set.
+- **Confidence Filtering (>= 80%)**: Candidates below the confidence threshold are discarded, retaining only strongly correlated clinical evidence.
+- **Top-3 Context Selection**: The three highest-scoring chunks are forwarded to the generation stage as grounded context.
+
+---
+
+#### 4. Clinical Answer Generation Pipeline
+
+<p align="center">
+  <img src="docs/images/Answer_generation_pipeline.png" alt="Answer Generation Pipeline" width="100%" />
+</p>
+
+- **Prompt Assembly**: Five inputs are fused into a single generation prompt:
+  1. Original User Query
+  2. Rewritten Query
+  3. Top-3 Grounded Clinical Chunks
+  4. System Instructions (safety guardrails & bilingual directives)
+  5. Pydantic-defined Output Schema
+- **LLM Sufficiency Check**: Google Gemini evaluates whether the retrieved context is sufficient to answer the query safely before generating a response.
+- **Structured Output**: Returns a validated response object containing the clinical guidance (`answer`) and a sufficiency flag (`is_info_suff`).
 
 ---
 
 ## Prerequisites & Required API Keys
 
-1. **Docker Desktop**: Required to run the full microservices stack.
-2. **Active API Credentials**:
-   - **Google Gemini API Key** (for clinical LLM generation).
-   - **Groq API Key** (for Whisper speech-to-text).
-3. **Remote GPU Microservice**: Required for BGE-M3 embedding generation and document ingestion.
+1. **Docker Desktop** — required to run the full microservices stack.
+2. **API Credentials**:
+   - **Google Gemini API Key** — clinical LLM generation.
+   - **Groq API Key** — Whisper speech-to-text.
+3. **Remote GPU Microservice** — required for BGE-M3 embedding and document ingestion (see below).
 
 ---
 
 ## Required Pre-run Step: Colab Microservice
 
-The embedding generation (BGE-M3 dense and sparse) and PDF layout parsing/chunking run on an external GPU microservice.
+Embedding generation and PDF parsing run on an external GPU microservice. Before starting the stack:
 
-1. Open and run all cells in the Google Colab notebook:
+1. Open and run all cells in the Colab notebook:
    [Colab Microservice Notebook](https://colab.research.google.com/drive/1deZ1D9VzyDvB2_xQ_Lq7152VD9TcWq0T?usp=sharing)
-2. Copy the generated public URL (e.g., your ngrok tunnel URL) and use it as `EMBEDDING_URL`.
+2. Copy the generated public URL (e.g., your ngrok tunnel) and use it as `EMBEDDING_URL` in the next step.
 
 ---
 
 ## Environment Configuration
 
-### 1. Root Environment (Frontend & Docker Compose)
+### Root (Frontend & Docker Compose)
 ```bash
 cp .env.example .env
 ```
 
-### 2. AI Backend Environment
+### AI Backend
 ```bash
 cd backend/ai
 cp .env.example .env
 ```
 
-Edit `backend/ai/.env` and set your credentials:
+Edit `backend/ai/.env`:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 GROQ_API_KEY=your_groq_api_key_here
@@ -114,38 +170,34 @@ QDRANT_URL=http://qdrant:6333
 
 ## Running the Application
 
-From the repository root, start all services via Docker Compose:
+From the repository root:
 
 ```bash
 docker compose up --build
 ```
 
-Services will be active at:
-
-- **Frontend UI**: http://localhost:8080
-- **FastAPI Core AI Backend**: http://localhost:3000
-- **Core AI API Documentation**: http://localhost:3000/docs
-- **FastAPI Map Backend**: http://localhost:5000
-- **Map Service API Documentation**: http://localhost:5000/docs
-- **Auth Node Backend**: http://localhost:4000
-- **Qdrant Vector Store**: http://localhost:6333
-- **MongoDB**: mongodb://localhost:27017
+| Service | URL |
+|---|---|
+| Frontend UI | http://localhost:8080 |
+| Core AI Backend | http://localhost:3000 |
+| Core AI API Docs | http://localhost:3000/docs |
+| Map Backend | http://localhost:5000 |
+| Map API Docs | http://localhost:5000/docs |
+| Auth Backend | http://localhost:4000 |
+| Qdrant Vector Store | http://localhost:6333 |
+| MongoDB | mongodb://localhost:27017 |
 
 ---
 
 ## Running Tests
 
-### Core AI Backend (Automated Test Suite)
-Run the full test suite for the AI service using `uv`:
-
+### Core AI Backend
 ```bash
 cd backend/ai
 uv run pytest tests/unit tests/integration/test_api_routes.py -v
 ```
 
 ### Map Service
-Run the unit test suite for the emergency hospital locator:
-
 ```bash
 cd backend/map
 pytest tests/unit -v

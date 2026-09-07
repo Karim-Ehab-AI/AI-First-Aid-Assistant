@@ -19,7 +19,7 @@ class GenerationService:
         retrieval_service: Optional[RetrievalService] = None,
         llm_provider: Optional[LLMProvider] = None,
         prompt_manager: Optional[PromptManager] = None,
-        min_score_threshold: float = settings.MIN_SIMILARITY_SCORE_THRESHOLD,
+        min_score_threshold: float = settings.MIN_SIMILARITY_SCORE_THRESHOLD
     ):
         self.retrieval_service = retrieval_service or RetrievalService()
         self.llm_provider = llm_provider or LLMFactory().create()
