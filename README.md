@@ -1,5 +1,15 @@
 # Clinical AI Assistant
 
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white)
+![Qdrant](https://img.shields.io/badge/Qdrant-DC2626?style=for-the-badge&logo=qdrant&logoColor=white)
+![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75C2?style=for-the-badge&logo=googlegemini&logoColor=white)
+![Hugging Face](https://img.shields.io/badge/Hugging_Face-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)
+![Groq Whisper](https://img.shields.io/badge/Groq_Whisper-F55036?style=for-the-badge)
+![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
+![Pytest](https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+
 An intelligent First Aid and Emergency Clinical Decision Support System based on Retrieval-Augmented Generation (RAG). The system processes verified medical guidelines, extracts clinical knowledge using hybrid dense-sparse vector indexing with reciprocal rank fusion (RRF), and delivers strictly bounded, actionable first aid guidance in Arabic and English.
 
 ## System Architecture Overview
@@ -9,6 +19,7 @@ The application is structured into a microservices architecture:
 - **Frontend (`frontend/`)**: React application using TanStack Router, TypeScript, Vite, Tailwind CSS, and shadcn/ui. Acts as a BFF (Backend For Frontend) proxy to securely manage cookies and CORS.
 - **Auth & Session Backend (`backend/auth/`)**: Node.js/Express service backed by MongoDB that handles JWT authentication, secure HttpOnly cookie issuance, user registration with strong password validation, and multi-session conversation history (renaming, deleting, loading past chats).
 - **Core Clinical Backend (`backend/ai/`)**: Production-ready FastAPI Python service following Clean Architecture that handles RAG retrieval, Qdrant integration, LLM generation, and Audio transcription.
+- **Emergency Map Backend (`backend/map/`)**: Independent FastAPI service providing real-time geolocation search to find and route to the nearest emergency hospitals and medical facilities.
 - **Remote Microservice**: GPU-accelerated microservice hosting the BGE-M3 embedding and document parsing models.
 
 ## Key Features
@@ -18,12 +29,13 @@ The application is structured into a microservices architecture:
 - **Persistent Chat Sessions**: Authenticated users have their conversation history saved in MongoDB. Includes ability to seamlessly switch between, rename, or delete past sessions via the sidebar.
 - **Guest Mode**: Unauthenticated users can use the core assistant features without history persistence.
 - **Voice Inputs**: Uses Groq Whisper API for rapid speech-to-text input.
+- **Emergency Facilities Locator**: Interactive map finding the nearest hospitals and medical centers based on user coordinates.
 
 ## Prerequisites & Required API Keys
 
 You only need to have the following:
 
-1. **Docker Desktop**: Required to run the full containerized deployment (Qdrant, MongoDB, Frontend, Auth Node, FastAPI). Ensure Docker Desktop is open and running.
+1. **Docker Desktop**: Required to run the full containerized deployment (Qdrant, MongoDB, Frontend, Auth Node, Core AI, Map Service). Ensure Docker Desktop is open and running.
 2. **Active API Credentials**:
    - Google Gemini API Key (for clinical LLM generation).
    - Groq API Key (for speech-to-text Whisper audio transcription).
@@ -80,16 +92,27 @@ Services will be spun up and available at:
 
 - **Frontend UI**: http://localhost:8080
 - **Auth Node Backend**: http://localhost:4000
-- **FastAPI Core Backend**: http://localhost:3000
+- **FastAPI Core AI Backend**: http://localhost:3000
+- **FastAPI Map Backend**: http://localhost:5000
 - **MongoDB**: mongodb://localhost:27017
 - **Qdrant Vector Store**: http://localhost:6333
-- **Interactive API Documentation (FastAPI)**: http://localhost:3000/docs
+- **Core AI API Documentation**: http://localhost:3000/docs
+- **Map Service API Documentation**: http://localhost:5000/docs
 
 ## Running Tests
 
+### Core AI Backend
 Run the full automated test suite for the core Python backend using `uv`:
 
 ```bash
 cd backend/ai
 uv run pytest tests/unit tests/integration/test_api_routes.py -v
+```
+
+### Map Backend
+Run the unit test suite for the emergency hospital locator service:
+
+```bash
+cd backend/map
+pytest tests/unit -v
 ```
